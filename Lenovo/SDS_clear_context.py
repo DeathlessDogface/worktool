@@ -24,11 +24,13 @@ def main():
         "python-django-openstack-auth",
         "rabbitmq-server",
         "sds-agent",
+        "mariadb"
     ]:
         cmd_list.extend(remove_package(pkg))
     cmd_list.extend(["umount /dev/sd%s"% i for i in list("abcdefghijkl")])
     cmd_list.append("/etc/ceph/scripts/disk_fs_mgmt.sh -O deletepartition")
     cmd_list.append("/etc/ceph/scripts/clear.sh")
+    cmd_list.append("rm /var/lib/mysql/* -rf")
     for cmd in cmd_list:
         print "order >> %s"%cmd
         msg = os.popen(cmd)
