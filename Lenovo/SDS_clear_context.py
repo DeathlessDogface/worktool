@@ -1,18 +1,27 @@
 #!/usr/bin/python
 import os
-
+def run_cmd(cmd):
+    print "order >>> %s"%cmd
+    ret = os.popen(cmd)
+    msg = ret.readlines()
+    if msg:
+        print msg
+    ret.close
 def remove_package(name):
-    cmds=[]
+    pkg_list=[]
     with os.popen("rpm -qa|grep %s"%name) as p_name:
         while True:
             try:
-                cmds.append("rpm -e --nodeps %s"%p_name.next())
+                pkg = p_name.next()
+                if pkg:
+                    run_cmd("rpm -e --nodeps %s"%(pkg.strip("\n")))
             except StopIteration:
                 break
-    return cmds
 
 def main():
-    cmd_list=[]
+    print "stop ceph..."
+    run_cmd('/etc/init.d/ceph -a -c /etc/ceph/ceph.conf stop')
+    print "remove packages..."
     for pkg in [
         "storagemgmt-client",
         "storagemgmt-api",
@@ -28,21 +37,28 @@ def main():
         "ntp",
         "ceph",
     ]:
-        print "check packages:%s ..."%pkg
-        cmd_list.extend(remove_package(pkg))
+        remove_package(pkg)
+    print "umount disk..."    
     umount_disks = raw_input("write the name of path need to umount,default is a~l:")
     if umount_disks:
         umount_disks=umount_disks.split(" ")
     else:
         umount_disks=["/dev/sd%s"% i for i in list("abcdefghijkl")]
-    cmd_list.extend(["umount %s"% j for j in umount_disks])
-    cmd_list.append("/etc/ceph/scripts/disk_fs_mgmt.sh -O deletepartition")
-    cmd_list.append("/etc/ceph/scripts/clear.sh")
-    cmd_list.append("rm /var/lib/mysql/* -rf")
-    for cmd in cmd_list:
-        print "order >> %s"%cmd
-        msg = os.popen(cmd)
-        print "".join(msg.readlines())
-        msg.close()
+    for disk_path in umount_disks:
+        run_cmd("umount %s"%disk_path)
+    print "clean ceph..."
+    run_cmd("/etc/ceph/scripts/clear.sh")
+    run_cmd("/etc/ceph/scripts/disk_fs_mgmt.sh -O deletepartition")
+    run_cmd("/etc/ceph/scripts/clear.sh")
+    run_cmd("/etc/ceph/scripts/disk_fs_mgmt.sh -O deletepartition")
+    print "remove config files..."
+    for f_path in [
+        "/var/lib/mysql/*",
+        "/Ceph/*",
+        "/root/ceph.*",
+        "/etc/ceph/",
+        "$(ls /root/ | grep *.keyring)",
+    ]:
+        run_cmd("rm %s -rf"%f_path)
 if __name__ == "__main__":
     main()
